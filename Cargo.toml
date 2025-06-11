@@ -4,4 +4,4 @@ members = [
     "wallet",
     "node",
     "cli"
-]
+, "rust_word_counter"]

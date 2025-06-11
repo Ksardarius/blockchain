@@ -3,4 +3,16 @@ name = "node"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+inherent_associated_types = []
+
 [dependencies]
+axum = "0.8.4"
+tokio = { version = "1.45.1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.12.19", features = ["json"] }
+
+blockchain = { path = "../blockchain" }
+wallet = { path = "../wallet" }
+axum-macros = "0.5.0"
