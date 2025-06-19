@@ -271,10 +271,11 @@ mod tests {
         let block = Block::genesis();
 
         assert_eq!(block.height, 0);
-        assert_eq!(block.transactions.len(), 0);
+        assert_eq!(block.transactions.len(), 1);
         assert_eq!(block.prev_block_hash, BlockchainHash::default());
         assert_eq!(block.nonce, 0);
-        assert_eq!(block.timestamp, 0);
+        assert_eq!(block.timestamp, 1231006505);
+        assert_eq!(block.bits, 2);
 
         let hex_hash = hex::encode(block.hash.as_ref());
         assert_eq!(hex_hash.len(), 64);
