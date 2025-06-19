@@ -3,4 +3,4 @@ members = [
     "blockchain",
     "node",
     "cli"
-, "rust_word_counter", "wallet"]
+, "wallet"]
