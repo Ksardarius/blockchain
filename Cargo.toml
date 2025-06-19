@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "blockchain",
-    "wallet",
     "node",
     "cli"
-, "rust_word_counter"]
+, "rust_word_counter", "wallet"]

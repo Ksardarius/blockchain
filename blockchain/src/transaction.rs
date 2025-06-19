@@ -1,80 +1,89 @@
+use bincode::{Encode, config};
 use chrono::Utc;
+use core;
 use serde::{Deserialize, Serialize};
-use wallet::{Wallet};
+use sha2::{Digest, Sha256};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+use crate::core::{BlockchainHash, PublicKeyHash, Script};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode)]
+pub struct TxOut {
+    pub value: u64,
+    pub script_pubkey: Script,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode)]
+pub struct TxIn {
+    pub prev_tx_id: BlockchainHash,
+    pub prev_out_idx: u32,
+    pub script_sig: Vec<u8>,
+    pub sequence: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode)]
 pub struct Transaction {
-    pub sender: String,
-    pub recipient: String,
-    pub amount: u64,
+    pub id: BlockchainHash,
+    pub inputs: Vec<TxIn>,
+    pub outputs: Vec<TxOut>,
     pub timestamp: u128,
-    pub signature: Option<Vec<u8>>,
 }
 
 impl Transaction {
-    pub fn new(sender: &str, recipient: &str, amount: u64, wallet: Option<&Wallet>) -> Transaction {
+    pub fn calculate_id(&self) -> BlockchainHash {
+        #[derive(Serialize, Encode)]
+        struct TxForHashing<'a> {
+            inputs: &'a Vec<TxIn>,
+            outputs: &'a Vec<TxOut>,
+            timestamp: u128,
+        }
+
+        let temp_tx = TxForHashing {
+            inputs: &self.inputs,
+            outputs: &self.outputs,
+            timestamp: self.timestamp,
+        };
+
+        let encoded_bytes = bincode::encode_to_vec(&temp_tx, config::standard())
+            .expect("Failed to serialize transaction for hashing. This should not happen.");
+
+        let first_hash = Sha256::digest(&encoded_bytes); // Hash the bytes
+        let second_hash = Sha256::digest(first_hash);
+
+        BlockchainHash::new(second_hash.into())
+    }
+
+    pub fn new(inputs: Vec<TxIn>, outputs: Vec<TxOut>) -> Self {
         let timestamp = Utc::now().timestamp_millis() as u128;
-        let message = Self::signable_message(sender, recipient, amount, timestamp);
-        let signature = wallet.map(|w| w.sign(&message).to_vec());
-        
-        Transaction {
-            sender: sender.to_string(),
-            recipient: recipient.to_string(),
-            amount,
+        let mut transaction = Transaction {
+            id: BlockchainHash::default(),
+            inputs,
+            outputs,
             timestamp,
-            signature
+        };
+
+        transaction.id = transaction.calculate_id();
+        transaction
+    }
+
+    pub fn coinbase_transaction() -> Transaction {
+        const INITIAL_BLOCK_REWARD: u64 = 50;
+
+        let initial_reward_output = TxOut {
+            value: INITIAL_BLOCK_REWARD, // Define this constant
+            script_pubkey: Script::PayToPublicKeyHash {
+                pub_key_hash: PublicKeyHash::new([0u8; 20]),
+            },
+        };
+
+        Transaction {
+            id: BlockchainHash::default(),
+            inputs: vec![],
+            outputs: vec![initial_reward_output],
+            timestamp: 0,
         }
     }
 
-    pub fn verify(&self, wallet: &Wallet) -> bool {
-        if let Some(signature) = &self.signature {
-            let message = Self::signable_message(&self.sender, &self.recipient, self.amount, self.timestamp);
-            wallet.verify(&message, signature)
-        } else {
-            false
-        }
-    }
-
-    #[inline]
-    fn signable_message(sender: &str, recipient: &str, amount: u64, timestamp: u128) -> Vec<u8> {
-        let mut message = Vec::with_capacity(sender.len() + recipient.len() + 40);
-        message.extend_from_slice(sender.as_bytes());
-        message.extend_from_slice(recipient.as_bytes());
-        message.extend_from_slice(amount.to_string().as_bytes());
-        message.extend_from_slice(timestamp.to_string().as_bytes());
-        
-        message
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_can_create_unsigned_transaction() {
-        let transaction = Transaction::new("S1", "R1", 100, None);
-
-        assert_eq!(transaction.amount, 100);
-        assert!(transaction.signature.is_none());
-    }
-
-    #[test]
-    fn it_can_create_signed_transaction() {
-        let wallet = Wallet::new();
-        let transaction = Transaction::new("S1", "R1", 100, Some(&wallet));
-
-        println!("{:?}", transaction.signature);
-
-        assert_eq!(transaction.amount, 100);
-        assert!(transaction.signature.is_some());
-    }
-
-    #[test]
-    fn it_can_verify_signed_transaction() {
-        let wallet = Wallet::new();
-        let transaction = Transaction::new("S1", "R1", 100, Some(&wallet));
-
-        assert!(transaction.verify(&wallet));
+    pub fn is_coinbase(&self) -> bool {
+        self.inputs.is_empty()
     }
 }

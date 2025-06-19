@@ -1,7 +1,9 @@
 pub mod block;
 pub mod blockchain;
-pub mod transaction;
+pub mod core;
+pub mod crypto;
 pub mod data;
+pub mod transaction;
 
 pub fn add(left: u64, right: u64) -> u64 {
     left + right

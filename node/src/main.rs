@@ -1,12 +1,13 @@
+use std::{net::SocketAddr, sync::Arc};
 
-
-use std::{net::SocketAddr, sync::{Arc}};
-
-use api::blockchain;
-use axum::{routing::{get, post}, Router};
 use ::blockchain::{blockchain::Blockchain, data::storage::SledStorage};
+use api::blockchain;
+use axum::{
+    Router,
+    routing::{get, post},
+};
 use serde_json::from_str;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::api::{peers::get_peers, types::NodeState};
 
@@ -14,7 +15,9 @@ mod api;
 mod broadcast;
 
 pub async fn load_peers_from_config(path: &str) -> Vec<String> {
-    let file_content = tokio::fs::read_to_string(path).await.expect("Failed to read configuration file");
+    let file_content = tokio::fs::read_to_string(path)
+        .await
+        .expect("Failed to read configuration file");
     from_str::<Vec<String>>(&file_content)
         .expect("Invalid JSON format")
         .into_iter()
@@ -24,13 +27,16 @@ pub async fn load_peers_from_config(path: &str) -> Vec<String> {
 
 #[tokio::main]
 async fn main() {
-    let peers = load_peers_from_config("peers.json").await;
-    let storage = SledStorage::new("./data").unwrap();
+    let peers = load_peers_from_config("/Users/morlovs/Projects/rust/rust_chain/node/peers.json").await;
+    let storage = SledStorage::new("/Users/morlovs/Projects/rust/rust_chain/node/data").unwrap();
 
-    let blockchain = Arc::new(Mutex::new(Blockchain::new(storage)));
+    let blockchain = Blockchain::new(storage);
+    let blockchain = blockchain.init().await.unwrap();
+
+    let blockchain = Arc::new(RwLock::new(blockchain));
     let state = NodeState {
         blockchain,
-        peers: Arc::new(Mutex::new(peers))
+        peers: Arc::new(Mutex::new(peers)),
     };
 
     let app = Router::new()
@@ -41,9 +47,9 @@ async fn main() {
         .route("/balance/{address}", get(blockchain::get_balance))
         .route("/peers", get(get_peers))
         .with_state(state);
-        
-        // .route("/mine", post(mine_block))
-        // .route("/balance/:address", get(get_balance));
+
+    // .route("/mine", post(mine_block))
+    // .route("/balance/:address", get(get_balance));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 8989));
     println!("🚀 Listening on http://{}", addr);
@@ -57,4 +63,3 @@ async fn main() {
 async fn root() -> &'static str {
     "Blockchain Node is running"
 }
-
