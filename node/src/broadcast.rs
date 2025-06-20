@@ -1,8 +1,8 @@
 use std::future::Future;
 
 use blockchain::block::Block;
-use blockchain::transaction::Transaction;
 use serde::Serialize;
+use wallet_crypto::transaction::Transaction;
 
 pub fn broadcast_block(peers: &[String], block: &Block) -> impl Future<Output = ()> {
     broadcast_post(peers, "blocks", block)

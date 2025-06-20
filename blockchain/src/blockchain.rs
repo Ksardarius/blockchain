@@ -1,16 +1,15 @@
 use std::{collections::HashMap, sync::Arc};
 
 use futures::future::try_join_all;
-use k256::ecdsa::{Signature, VerifyingKey, signature::Verifier};
 use tokio::sync::RwLock;
+use wallet_crypto::{
+    keys::{BlockchainHash, PublicKeyWithSignature, SignatureError}, scripts::Script, transaction::{Transaction, TxOut},
+};
 
 use crate::{
     block::Block,
     blockchain::utxo_set::UTXOSet,
-    core::BlockchainHash,
-    crypto::{calculate_p2pkh_hash, parse_p2pkh_script_sig_k256},
     data::storage::{self, Storage, StorageError},
-    transaction::{Transaction, TxOut},
 };
 
 mod utxo_set;
@@ -23,22 +22,18 @@ pub enum BlockchainError {
     BusinessError(String),
     #[error("Storage error: {0}")]
     StorageError(storage::StorageError),
+    #[error("Signature error: {0}")]
+    SignatureError(SignatureError),
     #[error("Invalid coinbase transaction: {0}")]
     InvalidCoinbase(String),
     #[error("UTXO not found: {tx_id}:{out_idx}")]
     UtxoNotFound { tx_id: BlockchainHash, out_idx: u32 },
-    #[error("Failed to parse script signature: {0}")]
-    ScriptSigParseError(String),
-    #[error("Invalid script execution: {0}")]
-    InvalidScript(String),
-    #[error("Invalid signature format: {0}")]
-    InvalidSignatureFormat(String),
+    #[error("Invalid public script execution: {0}")]
+    InvalidPublicKey(String),
     #[error("Invalid transaction: {0}")]
     InvalidTransaction(String),
     #[error("Insufficient funds in transaction inputs")]
     InsufficientFunds,
-    #[error("Invalid public key format: {0}")]
-    InvalidPublicKeyFormat(String),
     #[error("Double spend attempt for UTXO: {tx_id}:{out_idx}")]
     DoubleSpendAttempt { tx_id: BlockchainHash, out_idx: u32 },
     #[error("Invalid transaction fee: {0}")]
@@ -54,6 +49,12 @@ pub enum BlockchainError {
 impl From<storage::StorageError> for BlockchainError {
     fn from(err: storage::StorageError) -> Self {
         Self::StorageError(err)
+    }
+}
+
+impl From<SignatureError> for BlockchainError {
+    fn from(err: SignatureError) -> Self {
+        Self::SignatureError(err)
     }
 }
 
@@ -141,7 +142,10 @@ impl<S: Storage> Blockchain<S> {
         true
     }
 
-    pub async fn add_transaction(&mut self, tx: Transaction) -> Result<Transaction, BlockchainError> {
+    pub async fn add_transaction(
+        &mut self,
+        tx: Transaction,
+    ) -> Result<Transaction, BlockchainError> {
         if self.mempool.contains_key(&tx.id) {
             return Err(BlockchainError::MempoolError(
                 "Transaction already exists".to_string(),
@@ -223,52 +227,20 @@ impl<S: Storage> Blockchain<S> {
                         out_idx: tx_in.prev_out_idx,
                     })?;
 
-            // Ensure the UTXO is not spent twice within this *same* transaction (though UTXO set handles across txs)
-            // This requires a check on the `tx.inputs` themselves for duplicates.
-            // For now, rely on `HashMap` lookup and removal during block processing.
-
             // Script validation (P2PKH focus)
             match &prev_utxo.script_pubkey {
-                crate::core::Script::PayToPublicKeyHash { pub_key_hash } => {
-                    let (signature_bytes, public_key_bytes) =
-                        parse_p2pkh_script_sig_k256(&tx_in.script_sig).map_err(|e| {
-                            BlockchainError::ScriptSigParseError(format!(
-                                "Failed to parse P2PKH script_sig: {}",
-                                e
-                            ))
-                        })?;
+                Script::PayToPublicKeyHash { pub_key_hash } => {
+                    let public_key: PublicKeyWithSignature = (&tx_in.script_sig).try_into()?;
 
-                    // a. Verify public key hash matches
-                    let derived_pub_key_hash = calculate_p2pkh_hash(&public_key_bytes);
-                    if &derived_pub_key_hash != pub_key_hash {
-                        return Err(BlockchainError::InvalidScript(
+                    if &public_key.pub_key_hash != pub_key_hash {
+                        return Err(BlockchainError::InvalidPublicKey(
                             "Public key hash mismatch in P2PKH script".to_string(),
                         ));
                     }
 
-                    // b. Verify signature (USING k256)
-                    let verifying_key =
-                        VerifyingKey::from_sec1_bytes(&public_key_bytes).map_err(|e| {
-                            BlockchainError::InvalidPublicKeyFormat(format!(
-                                "Invalid public key format: {}",
-                                e
-                            ))
-                        })?;
-                    let signature = Signature::try_from(signature_bytes.as_ref()).map_err(|e| {
-                        BlockchainError::InvalidSignatureFormat(format!(
-                            "Invalid signature format: {}",
-                            e
-                        ))
-                    })?;
-
                     // The message signed is typically the transaction's hash (ID).
                     // `tx.id.as_ref()` should provide the 32-byte message digest that was signed
-
-                    if verifying_key.verify(tx.id.as_ref(), &signature).is_err() {
-                        return Err(BlockchainError::InvalidScript(
-                            "Invalid signature for transaction input".to_string(),
-                        ));
-                    }
+                    public_key.verify(tx.id.as_ref())?
                 } // _ => return Err(BlockchainError::InvalidScript("Unsupported script type".to_string())),
             }
 

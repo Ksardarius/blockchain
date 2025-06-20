@@ -7,6 +7,7 @@ edition = "2024"
 inherent_associated_types = []
 
 [dependencies]
+wallet-crypto = { path = "../wallet-crypto" }
 axum = "0.8.4"
 tokio = { version = "1.45.1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }

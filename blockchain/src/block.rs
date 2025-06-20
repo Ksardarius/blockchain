@@ -1,5 +1,4 @@
 use std::{
-    collections::{HashMap, HashSet},
     fmt,
 };
 
@@ -7,11 +6,10 @@ use bincode::{Encode, config};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use wallet_crypto::{keys::BlockchainHash, transaction::{Transaction, TxOut}};
 
 use crate::{
-    blockchain::BlockchainError,
-    core::BlockchainHash,
-    transaction::{Transaction, TxOut},
+    blockchain::BlockchainError
 };
 
 // How far into the future a block timestamp is allowed to be (e.g., 2 hours for Bitcoin-like behavior)

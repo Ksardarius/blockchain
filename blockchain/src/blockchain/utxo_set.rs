@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::core::BlockchainHash;
+use wallet_crypto::keys::BlockchainHash;
 
 type Key = (BlockchainHash, u32);
 

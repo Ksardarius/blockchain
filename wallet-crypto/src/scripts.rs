@@ -1,7 +1,7 @@
 use bincode::Encode;
 use serde::{Deserialize, Serialize};
 
-use crate::core::PublicKeyHash;
+use crate::keys::PublicKeyHash;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode)]
 pub enum Script {

@@ -1,7 +1,7 @@
 use ripemd::Ripemd160;
 use sha2::{Digest, Sha256};
 
-use crate::core::PublicKeyHash;
+use crate::keys::PublicKeyHash;
 
 // Parses the scriptSig for k256 P2PKH: [DER_Signature] [Compressed_PublicKey]
 // The sizes can vary, especially for DER signatures.
@@ -29,5 +29,5 @@ pub fn calculate_p2pkh_hash(public_key_bytes: &[u8]) -> PublicKeyHash {
     let sha256_hash_bytes = Sha256::digest(public_key_bytes);
     let ripemd160_hash_bytes: [u8; 20] = Ripemd160::digest(sha256_hash_bytes).into();
 
-    PublicKeyHash::new(ripemd160_hash_bytes)
+    ripemd160_hash_bytes.into()
 }

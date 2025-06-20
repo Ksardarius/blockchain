@@ -6,10 +6,9 @@ use axum::{
 };
 use axum_macros::debug_handler;
 use blockchain::{
-    block::Block,
-    core::{BlockchainHash, PublicKeyHash, Script},
-    transaction::{Transaction, TxIn, TxOut},
+    block::Block
 };
+use wallet_crypto::{keys::{BlockchainHash, PublicKeyHash, Signature}, scripts::Script, transaction::{Transaction, TxIn, TxOut}};
 
 use crate::{
     api::types::{NewTransaction, NodeError, NodeState},
@@ -37,7 +36,7 @@ pub async fn post_transaction(
         vec![TxIn {
             prev_tx_id: BlockchainHash::new([0x08; 32]), // Corrected syntax
             prev_out_idx: 1,
-            script_sig: vec![],
+            script_sig: Signature(vec![]) ,
             sequence: 0,
         }],
         vec![TxOut {

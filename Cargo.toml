@@ -3,4 +3,4 @@ members = [
     "blockchain",
     "node",
     "cli"
-, "wallet", "wallet-crypto", "wallet-web"]
+, "wallet-crypto", "wallet-web"]

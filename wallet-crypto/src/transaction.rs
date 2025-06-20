@@ -4,7 +4,10 @@ use core;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::core::{BlockchainHash, PublicKeyHash, Script};
+use crate::{
+    keys::{BlockchainHash, PublicKeyHash, PublicKeyWithSignature, Signature, SignatureError},
+    scripts::Script,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode)]
 pub struct TxOut {
@@ -16,7 +19,7 @@ pub struct TxOut {
 pub struct TxIn {
     pub prev_tx_id: BlockchainHash,
     pub prev_out_idx: u32,
-    pub script_sig: Vec<u8>,
+    pub script_sig: Signature,
     pub sequence: u32,
 }
 
@@ -85,5 +88,16 @@ impl Transaction {
 
     pub fn is_coinbase(&self) -> bool {
         self.inputs.is_empty()
+    }
+
+    pub fn verify_signatures(&self) -> Result<(), SignatureError> {
+        let message = self.calculate_id();
+
+        for tx_in in &self.inputs {
+            let verifier: PublicKeyWithSignature = (&tx_in.script_sig).try_into()?;
+            verifier.verify(message.as_ref())?;
+        }
+
+        Ok(())
     }
 }
