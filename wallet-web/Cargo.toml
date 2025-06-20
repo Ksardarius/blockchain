@@ -1,0 +1,13 @@
+[package]
+name = "wallet-web"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wallet-crypto = { path = "../wallet-crypto" }
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "console"] }
+js-sys = "0.3"

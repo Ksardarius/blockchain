@@ -1988,6 +1988,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "wallet-crypto"
+version = "0.1.0"
+
+[[package]]
+name = "wallet-web"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "wallet-crypto",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
 name = "want"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

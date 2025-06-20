@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rust Wasm Wallet (Hello World)</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Rust WebAssembly Wallet - Hello!</h1>
+    <p id="output">Loading Rust Wasm...</p>
+    <button id="greetButton">Greet!</button>
+    <button id="addButton">Add Numbers!</button>
+
+    <!-- The magic happens here: Trunk injects the Wasm bundle -->
+    <script type="module">
+        async function initWasm() {
+            await new Promise(res => {
+                window.addEventListener("TrunkApplicationStarted", () => res(), { once: true });
+            });
+        }
+
+        async function startWasmApp() {
+            const { greet, add } = window.wasmBindings;
+
+            document.getElementById('output').textContent = "Rust Wasm Ready!";
+
+            document.getElementById('greetButton').addEventListener('click', () => {
+                greet("World"); // Call Rust function
+            });
+
+            document.getElementById('addButton').addEventListener('click', () => {
+                const result = add(10, 20); // Call Rust function
+                document.getElementById('output').textContent = `10 + 20 = ${result}`;
+            });
+        }
+
+        initWasm().then(() => {
+            startWasmApp();
+        })
+    </script>
+</body>
+</html>
