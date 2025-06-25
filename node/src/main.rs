@@ -27,7 +27,8 @@ pub async fn load_peers_from_config(path: &str) -> Vec<String> {
 
 #[tokio::main]
 async fn main() {
-    let peers = load_peers_from_config("/Users/morlovs/Projects/rust/rust_chain/node/peers.json").await;
+    let peers =
+        load_peers_from_config("/Users/morlovs/Projects/rust/rust_chain/node/peers.json").await;
     let storage = SledStorage::new("/Users/morlovs/Projects/rust/rust_chain/node/data").unwrap();
 
     let blockchain = Blockchain::new(storage);

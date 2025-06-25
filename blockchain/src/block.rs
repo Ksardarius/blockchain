@@ -1,16 +1,15 @@
-use std::{
-    fmt,
-};
+use std::fmt;
 
 use bincode::{Encode, config};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use wallet_crypto::{keys::BlockchainHash, transaction::{Transaction, TxOut}};
-
-use crate::{
-    blockchain::BlockchainError
+use wallet_crypto::{
+    keys::BlockchainHash,
+    transaction::{Transaction, TxOut},
 };
+
+use crate::blockchain::BlockchainError;
 
 // How far into the future a block timestamp is allowed to be (e.g., 2 hours for Bitcoin-like behavior)
 const TIMESTAMP_FUTURITY_TOLERANCE_SECS: u64 = 2 * 60 * 60; // 2 hours

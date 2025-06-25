@@ -31,14 +31,17 @@ pub enum SignatureError {
     Encode,
     Decode,
 )]
-pub struct Signature(pub Vec<u8>);
+pub struct Signature(Vec<u8>);
 
-impl TryFrom<&Signature> for PublicKeyWithSignature {
-    type Error = SignatureError;
+impl Signature {
+    pub fn build(mut signature: Vec<u8>, public_key: &PublicKey) -> Self {
+        signature.extend_from_slice(&public_key.to_bytes());
+        Self(signature)
+    }
 
-    fn try_from(value: &Signature) -> Result<Self, Self::Error> {
+    pub fn get_verifier(&self) -> Result<PublicKeyWithSignature, SignatureError> {
         let (signature_bytes, public_key_bytes) =
-            parse_p2pkh_script_sig_k256(&value.0).map_err(|e| {
+            parse_p2pkh_script_sig_k256(&self.0).map_err(|e| {
                 SignatureError::ScriptSigParseError(format!(
                     "Failed to parse P2PKH script_sig: {}",
                     e

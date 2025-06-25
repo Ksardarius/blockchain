@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    keys::{BlockchainHash, PublicKeyHash, PublicKeyWithSignature, Signature, SignatureError},
+    keys::{
+        BlockchainHash, KeyPair, PublicKeyHash, PublicKeyWithSignature, Signature, SignatureError,
+    },
     scripts::Script,
 };
 
@@ -24,6 +26,20 @@ pub struct TxIn {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode)]
+pub struct UnsignedTxIn {
+    pub prev_tx_id: BlockchainHash,
+    pub prev_out_idx: u32,
+    pub sequence: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode)]
+pub struct DraftTransaction {
+    pub inputs: Vec<UnsignedTxIn>,
+    pub outputs: Vec<TxOut>,
+    pub timestamp: u128,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode)]
 pub struct Transaction {
     pub id: BlockchainHash,
     pub inputs: Vec<TxIn>,
@@ -31,7 +47,93 @@ pub struct Transaction {
     pub timestamp: u128,
 }
 
+impl DraftTransaction {
+    pub fn new(inputs: Vec<UnsignedTxIn>, outputs: Vec<TxOut>) -> Self {
+        let timestamp = Utc::now().timestamp_millis() as u128;
+        DraftTransaction {
+            // id: BlockchainHash::default(),
+            inputs,
+            outputs,
+            timestamp,
+        }
+    }
+
+    pub fn sign(self, key: &KeyPair) -> Transaction {
+        Transaction::new(self, key)
+    }
+
+    fn calculate_id(&self) -> BlockchainHash {
+        let encoded_bytes = bincode::encode_to_vec(self, config::standard())
+            .expect("Failed to serialize transaction for hashing. This should not happen.");
+
+        let first_hash = Sha256::digest(&encoded_bytes); // Hash the bytes
+        let second_hash = Sha256::digest(first_hash);
+
+        BlockchainHash::new(second_hash.into())
+    }
+}
+
 impl Transaction {
+    fn new(draft: DraftTransaction, key: &KeyPair) -> Self {
+        let draft_hash = draft.calculate_id();
+
+        let signed_inputs: Vec<TxIn> = draft
+            .inputs
+            .into_iter()
+            .map(|input| {
+                let signature = key.sign(draft_hash.as_ref()).unwrap();
+                TxIn {
+                    prev_tx_id: input.prev_tx_id,
+                    prev_out_idx: input.prev_out_idx,
+                    sequence: input.sequence,
+                    script_sig: Signature::build(signature, &key.public_key),
+                }
+            })
+            .collect();
+
+        let mut tx = Transaction {
+            id: BlockchainHash::default(),
+            inputs: signed_inputs,
+            outputs: draft.outputs,
+            timestamp: draft.timestamp,
+        };
+
+        tx.id = tx.calculate_id();
+
+        tx
+    }
+
+    fn calculate_signing_id(&self) -> BlockchainHash {
+        #[derive(Serialize, Encode)]
+        struct TxForHashing<'a> {
+            inputs: &'a Vec<UnsignedTxIn>,
+            outputs: &'a Vec<TxOut>,
+            timestamp: u128,
+        }
+
+        let temp_tx = TxForHashing {
+            inputs: &self
+                .inputs
+                .iter()
+                .map(|input| UnsignedTxIn {
+                    prev_out_idx: input.prev_out_idx,
+                    prev_tx_id: input.prev_tx_id,
+                    sequence: input.sequence,
+                })
+                .collect(),
+            outputs: &self.outputs,
+            timestamp: self.timestamp,
+        };
+
+        let encoded_bytes = bincode::encode_to_vec(&temp_tx, config::standard())
+            .expect("Failed to serialize transaction for hashing. This should not happen.");
+
+        let first_hash = Sha256::digest(&encoded_bytes); // Hash the bytes
+        let second_hash = Sha256::digest(first_hash);
+
+        BlockchainHash::new(second_hash.into())
+    }
+
     pub fn calculate_id(&self) -> BlockchainHash {
         #[derive(Serialize, Encode)]
         struct TxForHashing<'a> {
@@ -55,19 +157,6 @@ impl Transaction {
         BlockchainHash::new(second_hash.into())
     }
 
-    pub fn new(inputs: Vec<TxIn>, outputs: Vec<TxOut>) -> Self {
-        let timestamp = Utc::now().timestamp_millis() as u128;
-        let mut transaction = Transaction {
-            id: BlockchainHash::default(),
-            inputs,
-            outputs,
-            timestamp,
-        };
-
-        transaction.id = transaction.calculate_id();
-        transaction
-    }
-
     pub fn coinbase_transaction() -> Transaction {
         const INITIAL_BLOCK_REWARD: u64 = 50;
 
@@ -86,18 +175,18 @@ impl Transaction {
         }
     }
 
-    pub fn is_coinbase(&self) -> bool {
-        self.inputs.is_empty()
-    }
-
     pub fn verify_signatures(&self) -> Result<(), SignatureError> {
-        let message = self.calculate_id();
+        let message = self.calculate_signing_id();
 
         for tx_in in &self.inputs {
-            let verifier: PublicKeyWithSignature = (&tx_in.script_sig).try_into()?;
+            let verifier: PublicKeyWithSignature = (&tx_in.script_sig).get_verifier()?;
             verifier.verify(message.as_ref())?;
         }
 
         Ok(())
+    }
+
+    pub fn is_coinbase(&self) -> bool {
+        self.inputs.is_empty()
     }
 }

@@ -3,7 +3,9 @@ use std::{collections::HashMap, sync::Arc};
 use futures::future::try_join_all;
 use tokio::sync::RwLock;
 use wallet_crypto::{
-    keys::{BlockchainHash, PublicKeyWithSignature, SignatureError}, scripts::Script, transaction::{Transaction, TxOut},
+    keys::{BlockchainHash, PublicKeyWithSignature, SignatureError},
+    scripts::Script,
+    transaction::{Transaction, TxOut},
 };
 
 use crate::{
@@ -230,7 +232,7 @@ impl<S: Storage> Blockchain<S> {
             // Script validation (P2PKH focus)
             match &prev_utxo.script_pubkey {
                 Script::PayToPublicKeyHash { pub_key_hash } => {
-                    let public_key: PublicKeyWithSignature = (&tx_in.script_sig).try_into()?;
+                    let public_key: PublicKeyWithSignature = (&tx_in.script_sig).get_verifier()?;
 
                     if &public_key.pub_key_hash != pub_key_hash {
                         return Err(BlockchainError::InvalidPublicKey(

@@ -5,10 +5,12 @@ use axum::{
     response::IntoResponse,
 };
 use axum_macros::debug_handler;
-use blockchain::{
-    block::Block
+use blockchain::block::Block;
+use wallet_crypto::{
+    keys::{BlockchainHash, KeyPair, PublicKeyHash, Signature},
+    scripts::Script,
+    transaction::{DraftTransaction, Transaction, TxIn, TxOut, UnsignedTxIn},
 };
-use wallet_crypto::{keys::{BlockchainHash, PublicKeyHash, Signature}, scripts::Script, transaction::{Transaction, TxIn, TxOut}};
 
 use crate::{
     api::types::{NewTransaction, NodeError, NodeState},
@@ -29,23 +31,27 @@ pub async fn post_transaction(
     State(NodeState { blockchain, peers }): State<NodeState>,
     Json(tx): Json<NewTransaction>,
 ) -> Result<Json<String>, NodeError> {
+    let keypair_alice = KeyPair::generate();
+    let keypair_bob = KeyPair::generate();
+
     let mut blockchain = blockchain.write().await;
     let peers = peers.lock().await;
 
-    let tx = Transaction::new(
-        vec![TxIn {
+    let tx = DraftTransaction::new(
+        vec![UnsignedTxIn {
             prev_tx_id: BlockchainHash::new([0x08; 32]), // Corrected syntax
             prev_out_idx: 1,
-            script_sig: Signature(vec![]) ,
             sequence: 0,
         }],
         vec![TxOut {
             value: 50,
             script_pubkey: Script::PayToPublicKeyHash {
-                pub_key_hash: PublicKeyHash::new([0x1; 20]),
+                pub_key_hash: keypair_bob.public_key.to_address(),
             },
         }],
     );
+
+    let tx = tx.sign(&keypair_alice);
 
     let tx = blockchain.add_transaction(tx).await?;
     broadcast_transaction(&peers, &tx).await;
