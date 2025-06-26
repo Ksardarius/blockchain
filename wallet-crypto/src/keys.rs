@@ -10,18 +10,20 @@ use rand::rngs::OsRng;
 mod blockchain_hash;
 mod public_key_hash;
 mod signature;
+mod serialization;
 
 pub use blockchain_hash::BlockchainHash;
 pub use public_key_hash::PublicKeyHash;
+use serde::{Deserialize, Serialize};
 pub use signature::{Signature, SignatureError};
 
-#[derive(Debug, Clone, /*Serialize, Deserialize, */ PartialEq, Eq)]
-// #[serde(transparent)]
-pub struct SecretKey(pub SigningKey);
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(transparent)]
+pub struct SecretKey(#[serde(with = "serialization::signing_key_serde")]pub SigningKey);
 
-#[derive(Debug, Clone, /*Serialize, Deserialize,*/ PartialEq, Eq /*Hash */)]
-// #[serde(transparent)]
-pub struct PublicKey(pub VerifyingKey);
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq /*Hash */)]
+#[serde(transparent)]
+pub struct PublicKey(#[serde(with = "serialization::verifying_key_serde")]pub VerifyingKey);
 
 impl PublicKey {
     pub fn to_address(&self) -> PublicKeyHash {
@@ -89,7 +91,7 @@ impl Debug for PublicKeyWithSignature {
     }
 }
 
-#[derive(Debug, Clone, /*Serialize, Deserialize,*/ PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct KeyPair {
     pub secret_key: SecretKey,
     pub public_key: PublicKey,

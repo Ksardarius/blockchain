@@ -9,6 +9,9 @@
 <body>
     <h1>Rust WebAssembly Wallet - Hello!</h1>
     <p id="output">Loading Rust Wasm...</p>
+
+    <button id="generateKeys">Generate keypair!</button>
+    
     <button id="greetButton">Greet!</button>
     <button id="addButton">Add Numbers!</button>
 
@@ -21,7 +24,7 @@
         }
 
         async function startWasmApp() {
-            const { greet, add } = window.wasmBindings;
+            const { greet, add, generate_new_key_pair } = window.wasmBindings;
 
             document.getElementById('output').textContent = "Rust Wasm Ready!";
 
@@ -32,6 +35,11 @@
             document.getElementById('addButton').addEventListener('click', () => {
                 const result = add(10, 20); // Call Rust function
                 document.getElementById('output').textContent = `10 + 20 = ${result}`;
+            });
+
+            document.getElementById('generateKeys').addEventListener('click', () => {
+                const keys = generate_new_key_pair(); // Call Rust function
+                document.getElementById('output').textContent = `${keys}`;
             });
         }
 

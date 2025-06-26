@@ -1,5 +1,15 @@
+use wallet_crypto::keys::KeyPair;
 use wasm_bindgen::prelude::*;
 use web_sys::console;
+
+#[wasm_bindgen]
+pub fn generate_new_key_pair() -> Result<JsValue, JsValue> {
+    let keypair = KeyPair::generate();
+    let js_value = serde_json::to_string(&keypair)
+        .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))?;
+
+    Ok(JsValue::from_str(&js_value))
+}
 
 #[wasm_bindgen]
 pub fn greet(name: &str) {
