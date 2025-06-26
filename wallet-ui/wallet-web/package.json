@@ -1,0 +1,10 @@
+{
+  "name": "wallet-web-wasm",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "wasm-pack build --target web --out-dir pkg --release",
+    "build:dev": "wasm-pack build --target web --out-dir pkg --dev",
+    "build:watch": "wasm-pack build --target web --out-dir pkg --dev --watch"
+  }
+}

@@ -1,0 +1,89 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm/
+.eslintcache
+.prettiercache
+
+# Production build outputs
+dist/
+build/
+out/
+.next/ # Next.js
+.nuxt/ # Nuxt.js
+.svelte-kit/ # SvelteKit
+.angular/ # Angular CLI build output
+coverage/ # Test coverage reports
+
+# Rust WebAssembly specific
+target/     # Cargo build output
+pkg/        # wasm-pack output directory (containing .wasm and JS glue)
+wasm-pack-test/ # Temporary directory created by `wasm-pack test`
+.cargo/     # Sometimes cargo creates caches here
+# If you use rustfmt or clippy
+rustfmt.toml.backup
+.clippy_toml.backup
+
+# Log files
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Editor/IDE specific
+.vscode/        # VS Code settings (optional, if you want to share specific settings)
+.idea/          # IntelliJ/WebStorm IDE files
+.DS_Store       # macOS specific
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+
+# OS generated files
+.Trash/
+Thumbs.db
+ehthumbs.db
+
+# Misc
+.cache/
+.history/ # VS Code Local History
+*.sqlite
+*.sqlite3
+*.db
+
+# Yarn Plug'n'Play (if used)
+.pnp.*
+
+# Visual Studio Code (optional, if you want to keep extensions or settings)
+.vscode/extensions.json
+.vscode/settings.json
+
+# If you are explicitly generating declaration files for your TS
+*.tsbuildinfo
+
+# If using Parcel
+.parcel-cache/
+.parcelrc
+
+# If using Rollup or Vite
+.rollup.cache/
+.vite/
+
+# Stencil specific (for component libraries)
+www/ # Stencil's default output for the www target (often generated for docs/demos)
+
+# Temporary files
+*.tmp
+*~
+*.swp
+*.swo
