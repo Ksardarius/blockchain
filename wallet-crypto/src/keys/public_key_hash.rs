@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt};
 
 use bincode::{Decode, Encode};
 
@@ -21,6 +21,11 @@ pub struct PublicKeyHash([u8; 20]);
 impl PublicKeyHash {
     pub fn new(bytes: [u8; 20]) -> Self {
         PublicKeyHash(bytes)
+    }
+    pub fn try_from_string(data: &str) -> Result<Self, &'static str> {
+        let result = hex::decode(data).map_err(|_| "Incorrect hex string")?;
+        Self::from_slice(result.as_slice())
+
     }
     pub fn from_slice(slice: &[u8]) -> Result<Self, &'static str> {
         if slice.len() == 20 {

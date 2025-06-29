@@ -108,6 +108,16 @@ impl KeyPair {
         }
     }
 
+    pub fn from_private_key(data: &[u8]) -> Self {
+        let signing_key = SigningKey::from_slice(data).unwrap();
+        let verifying_key = signing_key.verifying_key().clone();
+
+        KeyPair {
+            secret_key: SecretKey(signing_key),
+            public_key: PublicKey(verifying_key),
+        }
+     }
+
     pub fn sign(&self, message: &[u8]) -> Result<Vec<u8>, String> {
         let signature: EcdsaSignature = self.secret_key.0.sign(message);
         Ok(signature.to_vec())
