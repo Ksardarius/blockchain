@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use wallet_crypto::{keys::{BlockchainHash, PublicKeyHash}, transaction::{TxOut, UTXO}};
 
@@ -12,12 +12,14 @@ type Key = (BlockchainHash, u32);
 #[derive(Debug, Clone)]
 pub struct UTXOSet<TxOut> {
     pub data: HashMap<Key, TxOut>,
+    pub reserved: HashSet<Key>
 }
 
 impl<TxOut> UTXOSet<TxOut> {
     pub fn new() -> Self {
         UTXOSet {
             data: HashMap::new(),
+            reserved: HashSet::new()
         }
     }
 
@@ -35,6 +37,14 @@ impl<TxOut> UTXOSet<TxOut> {
 
     pub fn insert(&mut self, key: Key, value: TxOut) -> Option<TxOut> {
         self.data.insert(key, value)
+    }
+
+    pub fn reserve(&mut self, data: HashSet<Key>) {
+        self.reserved.extend(data);
+    }
+
+    pub fn is_reserved(&self, key: &Key) -> bool {
+        self.reserved.contains(key)
     }
 }
 

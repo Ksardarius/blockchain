@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use futures::future::try_join_all;
 use tokio::sync::RwLock;
@@ -154,8 +157,10 @@ impl<S: Storage> Blockchain<S> {
             ));
         }
 
-        self.validate_transaction(&tx).await?;
+        let (used_utxos, _) = self.validate_transaction(&tx).await?;
         self.mempool.insert(tx.id.clone(), tx.clone());
+        let mut utxo_set = self.utxo_set.write().await;
+        utxo_set.reserve(used_utxos);
 
         Ok(tx)
     }
@@ -165,12 +170,12 @@ impl<S: Storage> Blockchain<S> {
             .transactions
             .iter()
             .skip(1)
-            .map(|tx| {
+            .map(async |tx| {
                 // might need to clone `self` if it's an Arc<Mutex<Blockchain>>
                 // or ensure `self` is validly captured across tasks.
                 // For example: let blockchain_clone = Arc::clone(&self.blockchain_arc);
                 // async move { blockchain_clone.validate_transaction(tx).await }
-                self.validate_transaction(tx) // Map each transaction to its validation Future
+                self.validate_transaction(tx).await.map(|(_, fee)| fee) // Map each transaction to its validation Future
             })
             .collect();
 
@@ -213,7 +218,10 @@ impl<S: Storage> Blockchain<S> {
         return Ok(());
     }
 
-    async fn validate_transaction(&self, tx: &Transaction) -> Result<u64, BlockchainError> {
+    async fn validate_transaction(
+        &self,
+        tx: &Transaction,
+    ) -> Result<(HashSet<(BlockchainHash, u32)>, u64), BlockchainError> {
         // verify transaction
         tx.verify_signatures()?;
 
@@ -221,9 +229,21 @@ impl<S: Storage> Blockchain<S> {
 
         let utxo_set = self.utxo_set.read().await;
 
+        let mut used_utxos: HashSet<_> = HashSet::new();
+
         // Verify inputs
         for tx_in in &tx.inputs {
-            let utxo_key = (tx_in.prev_tx_id.clone(), tx_in.prev_out_idx);
+            let utxo_key = (tx_in.prev_tx_id, tx_in.prev_out_idx);
+
+            // Doubse spend attempt
+            // imput must not be used in uncommited transactions and inputs must be unique
+            if utxo_set.is_reserved(&utxo_key) || !used_utxos.insert(utxo_key) {
+                return Err(BlockchainError::DoubleSpendAttempt {
+                    tx_id: tx_in.prev_tx_id.clone(),
+                    out_idx: tx_in.prev_out_idx,
+                });
+            }
+
             let prev_utxo =
                 utxo_set
                     .get(&utxo_key)
@@ -264,7 +284,7 @@ impl<S: Storage> Blockchain<S> {
         }
 
         let fee = total_input_value - total_output_value;
-        Ok(fee)
+        Ok((used_utxos, fee))
     }
 
     pub async fn mine_pending_transactions(&mut self) -> Result<(), BlockchainError> {
