@@ -12,6 +12,13 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode)]
+pub struct UTXO {
+    pub prev_tx_id: BlockchainHash,
+    pub prev_out_idx: u32,
+    pub value: u64
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode)]
 pub struct TxOut {
     pub value: u64,
     pub script_pubkey: Script,
@@ -158,12 +165,14 @@ impl Transaction {
     }
 
     pub fn coinbase_transaction() -> Transaction {
-        const INITIAL_BLOCK_REWARD: u64 = 50;
+        const INITIAL_BLOCK_REWARD: u64 = 120;
+        let inital_wallet: PublicKeyHash =
+            PublicKeyHash::try_from_string("24467286509945fd0d87b72af8a3af01a3268162").unwrap();
 
         let initial_reward_output = TxOut {
-            value: INITIAL_BLOCK_REWARD, // Define this constant
+            value: INITIAL_BLOCK_REWARD,
             script_pubkey: Script::PayToPublicKeyHash {
-                pub_key_hash: PublicKeyHash::new([0u8; 20]),
+                pub_key_hash: inital_wallet,
             },
         };
 

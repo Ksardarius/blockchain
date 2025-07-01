@@ -1,6 +1,6 @@
 import { Component, h, State } from '@stencil/core';
 import { Router } from "../../";
-import init, {generate_new_key_pair, create_wallet, get_all_wallets, create_transaction} from 'wallet-web-wasm'
+import init, { generate_new_key_pair, create_wallet, get_all_wallets, create_transaction, get_utxos } from 'wallet-web-wasm'
 
 @Component({
   tag: 'app-home',
@@ -10,6 +10,9 @@ import init, {generate_new_key_pair, create_wallet, get_all_wallets, create_tran
 export class AppHome {
   @State()
   selected_address: string = ''
+
+  @State()
+  selected_recipient: string = ''
 
   @State()
   addresses: string[] = []
@@ -25,16 +28,25 @@ export class AppHome {
   async get_all_wallets() {
     this.addresses = await get_all_wallets();
     this.selected_address = this.addresses[0];
-    console.log(this.addresses)
+    this.selected_recipient = this.addresses[this.addresses.length - 1];
   }
 
   async create_new_transaction() {
-    let tx = await create_transaction(this.selected_address, "123", "ef637f6b2a16df8eec2b986e9df5383b9ed48514", BigInt(100));
+    let tx = await create_transaction(this.selected_address, "123", this.selected_recipient, BigInt(100));
     console.log('Transaction created', tx)
   }
 
+  async get_utxos() {
+    let utxos = await get_utxos(this.selected_address);
+    console.log('Selected vallet utxos', utxos);
+  }
+
   handle_select(event) {
-    this.selected_address = event.target.value
+    this.selected_address = event.target.value;
+  }
+
+  handle_recipient_select(event) {
+    this.selected_recipient = event.target.value;
   }
 
   async handle_submit() {
@@ -48,17 +60,33 @@ export class AppHome {
         <span>{key}</span>
         <div>
           <form onSubmit={(e) => this.handle_submit()}>
-            <label>
-              Address:
-              <select onInput={(event) => this.handle_select(event)}>
-                {
-                  this.addresses.map(a => {
-                    return <option value={a} selected={a === this.selected_address}>{a}</option>
-                  })
-                }
-              </select>
-            </label>
-            <input type="submit" value="Submit" />
+            <div>
+              <label>
+                Address:
+                <select onInput={(event) => this.handle_select(event)}>
+                  {
+                    this.addresses.map(a => {
+                      return <option value={a} selected={a === this.selected_address}>{a}</option>
+                    })
+                  }
+                </select>
+              </label>
+            </div>
+
+            <div>
+              <label>
+                Recipient:
+                <select onInput={(event) => this.handle_recipient_select(event)}>
+                  {
+                    this.addresses.map(a => {
+                      return <option value={a} selected={a === this.selected_recipient}>{a}</option>
+                    })
+                  }
+                </select>
+              </label>
+            </div>
+
+
           </form>
         </div>
         <p>
@@ -79,6 +107,11 @@ export class AppHome {
           onClick={() => { this.create_new_transaction() }}
         >
           Create new transactions
+        </button>
+        <button
+          onClick={() => { this.get_utxos() }}
+        >
+          Get UTXO
         </button>
         <button
           onClick={() => Router.push('/profile/stencil')}

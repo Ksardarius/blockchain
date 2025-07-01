@@ -1,19 +1,17 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::StatusCode,
-    response::IntoResponse,
+    http::StatusCode
 };
 use axum_macros::debug_handler;
 use blockchain::block::Block;
 use wallet_crypto::{
-    keys::{BlockchainHash, KeyPair, PublicKeyHash, Signature},
-    scripts::Script,
-    transaction::{DraftTransaction, Transaction, TxIn, TxOut, UnsignedTxIn},
+    keys::PublicKeyHash,
+    transaction::{Transaction, UTXO},
 };
 
 use crate::{
-    api::types::{NewTransaction, NodeError, NodeState},
+    api::types::{NodeError, NodeState},
     broadcast::{broadcast_block, broadcast_transaction},
 };
 
@@ -29,29 +27,10 @@ pub async fn get_blocks(
 #[debug_handler]
 pub async fn post_transaction(
     State(NodeState { blockchain, peers }): State<NodeState>,
-    Json(tx): Json<NewTransaction>,
+    Json(tx): Json<Transaction>,
 ) -> Result<Json<String>, NodeError> {
-    let keypair_alice = KeyPair::generate();
-    let keypair_bob = KeyPair::generate();
-
     let mut blockchain = blockchain.write().await;
     let peers = peers.lock().await;
-
-    let tx = DraftTransaction::new(
-        vec![UnsignedTxIn {
-            prev_tx_id: BlockchainHash::new([0x08; 32]), // Corrected syntax
-            prev_out_idx: 1,
-            sequence: 0,
-        }],
-        vec![TxOut {
-            value: 50,
-            script_pubkey: Script::PayToPublicKeyHash {
-                pub_key_hash: keypair_bob.public_key.to_address(),
-            },
-        }],
-    );
-
-    let tx = tx.sign(&keypair_alice);
 
     let tx = blockchain.add_transaction(tx).await?;
     broadcast_transaction(&peers, &tx).await;
@@ -82,11 +61,12 @@ pub async fn mine_block(
 }
 
 #[debug_handler]
-pub async fn get_balance(
+pub async fn get_utxo_by_address(
     State(NodeState { blockchain, .. }): State<NodeState>,
     Path(address): Path<String>,
-) -> impl IntoResponse {
-    // let blockchain = blockchain.lock().await;
-    // let balance = blockchain.get_balance(&address);
-    Json(0)
+) -> Result<Json<Vec<UTXO>>, NodeError> {
+    let blockchain = blockchain.read().await;
+    let address = PublicKeyHash::try_from_string(&address).map_err(|_| NodeError::BadRequest("Address is incorrect hash value".to_string()))?;
+    let utxos = blockchain.get_utxos_by_address(address).await;
+    Ok(Json(utxos))
 }

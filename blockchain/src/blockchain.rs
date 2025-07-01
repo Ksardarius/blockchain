@@ -3,9 +3,9 @@ use std::{collections::HashMap, sync::Arc};
 use futures::future::try_join_all;
 use tokio::sync::RwLock;
 use wallet_crypto::{
-    keys::{BlockchainHash, PublicKeyWithSignature, SignatureError},
+    keys::{BlockchainHash, PublicKeyHash, PublicKeyWithSignature, SignatureError},
     scripts::Script,
-    transaction::{Transaction, TxOut},
+    transaction::{Transaction, TxOut, UTXO},
 };
 
 use crate::{
@@ -214,6 +214,9 @@ impl<S: Storage> Blockchain<S> {
     }
 
     async fn validate_transaction(&self, tx: &Transaction) -> Result<u64, BlockchainError> {
+        // verify transaction
+        tx.verify_signatures()?;
+
         let mut total_input_value: u64 = 0;
 
         let utxo_set = self.utxo_set.read().await;
@@ -239,10 +242,6 @@ impl<S: Storage> Blockchain<S> {
                             "Public key hash mismatch in P2PKH script".to_string(),
                         ));
                     }
-
-                    // The message signed is typically the transaction's hash (ID).
-                    // `tx.id.as_ref()` should provide the 32-byte message digest that was signed
-                    public_key.verify(tx.id.as_ref())?
                 } // _ => return Err(BlockchainError::InvalidScript("Unsupported script type".to_string())),
             }
 
@@ -349,6 +348,11 @@ impl<S: Storage> Blockchain<S> {
         }
 
         Ok(all_blocks)
+    }
+
+    pub async fn get_utxos_by_address(&self, address: PublicKeyHash) -> Vec<UTXO> {
+        let utxo_set = self.utxo_set.read().await;
+        utxo_set.get_utxos_by_address(address)
     }
 
     pub async fn rebuild_utxo_set(&mut self) -> Result<(), BlockchainError> {

@@ -23,3 +23,4 @@ base64 = "0.22"
 hex = "0.4.3"
 gloo-console = "0.3"
 indexed_db_futures = { version = "0.6.4", features = ["cursors", "streams"]}
+gloo-net = "0.6.0"

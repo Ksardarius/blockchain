@@ -6,10 +6,11 @@ use wallet_crypto::{
 use wasm_bindgen::prelude::*;
 use web_sys::console;
 
-use crate::storage::{get_all_accounts, get_keypair, store_private_key};
+use crate::{api::NodeClient, storage::{get_all_accounts, get_keypair, store_private_key}};
 
 mod crypto;
 mod storage;
+mod api;
 
 #[wasm_bindgen]
 pub fn generate_new_key_pair() -> Result<JsValue, JsValue> {
@@ -77,12 +78,26 @@ pub async fn create_transaction(
         // verify correctness
         tx.verify_signatures().map_err(|er| er.to_string())?;
 
+        let client = NodeClient::new("http://localhost:8989");
+        client.post_transaction(&tx).await.map_err(|err|err.to_string())?;
+
         let val = serde_wasm_bindgen::to_value(&tx).unwrap();
 
         return Ok(val);
     }
 
     Err(JsValue::from_str("Unable to create transaction"))
+}
+
+#[wasm_bindgen]
+pub async fn get_utxos(address: &str) -> Result<JsValue, JsValue> {
+    let address = PublicKeyHash::try_from_string(address)?;
+    let client = NodeClient::new("http://localhost:8989");
+    let utxos = client.get_utxos(address).await.map_err(|err|err.to_string());
+
+    let val = serde_wasm_bindgen::to_value(&utxos).unwrap();
+
+    Ok(val)
 }
 
 #[wasm_bindgen(start)]
