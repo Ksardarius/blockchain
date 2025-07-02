@@ -29,7 +29,7 @@ pub struct Block {
 }
 
 impl Block {
-    pub fn new(
+    pub async fn mine_new(
         height: u64,
         transactions: Vec<Transaction>,
         prev_block_hash: BlockchainHash,
@@ -54,13 +54,14 @@ impl Block {
             bits,
         };
 
+        block.mine_nonce().await;
         block.hash = block.calculate_hash();
 
         block
     }
 
     pub fn genesis() -> Block {
-        let coinbase_transaction = Transaction::coinbase_transaction();
+        let coinbase_transaction = Transaction::genesis_transaction();
         let transactions = vec![coinbase_transaction];
 
         let merkle_root = Block::calculate_merkle_root(&transactions).expect(
@@ -155,7 +156,37 @@ impl Block {
         Ok(BlockchainHash::new(leaves[0]))
     }
 
-    pub fn verify_merkle_root(&self) -> Result<(), BlockchainError> {
+    pub async fn mine_nonce(&mut self) -> () {
+        let difficulty_target = Self::get_difficulty_target_from_bits(self.bits);
+
+        loop {
+            let calculated_header_hash = self.calculate_hash();
+            if calculated_header_hash < difficulty_target { // Assuming BlockchainHash compares byte arrays lexicographically
+                // FOUND A VALID BLOCK!
+                println!("Block found with nonce: {}", self.nonce);
+                break;
+            }
+
+            self.nonce = self.nonce.wrapping_add(1);
+
+            // if cycle, change timestamp
+            if self.nonce == 0 {
+                self.timestamp = Utc::now().timestamp_millis() as u128;
+            }
+
+            tokio::task::yield_now().await;
+        }
+    }
+
+    pub fn validate_block(&self) -> Result<(), BlockchainError> {
+        self.verify_merkle_root()?;
+        self.verify_timestamp_plausibility()?;
+        self.validate_proof_of_work()?;
+
+        Ok(())
+    }
+
+    fn verify_merkle_root(&self) -> Result<(), BlockchainError> {
         let calculated_merkle_root =
             Block::calculate_merkle_root(&self.transactions).map_err(|e| {
                 BlockchainError::InvalidBlock(format!("Merkle root calculation failed: {}", e))
@@ -169,7 +200,7 @@ impl Block {
         Ok(())
     }
 
-    pub fn verify_timestamp_plausibility(&self) -> Result<(), BlockchainError> {
+    fn verify_timestamp_plausibility(&self) -> Result<(), BlockchainError> {
         let current_time_millis = Utc::now().timestamp_millis() as u128;
 
         // Rule: Block timestamp must not be more than `TIMESTAMP_FUTURITY_TOLERANCE_MILLIS`
@@ -184,9 +215,9 @@ impl Block {
         Ok(())
     }
 
-    pub fn validate_proof_of_work(&self) -> Result<(), BlockchainError> {
+    fn validate_proof_of_work(&self) -> Result<(), BlockchainError> {
         let calculated_header_hash = self.calculate_hash();
-        let difficulty_target = Self::get_difficulty_target_from_bits(self.bits)?;
+        let difficulty_target = Self::get_difficulty_target_from_bits(self.bits);
 
         if calculated_header_hash.is_zero_hash() || calculated_header_hash > difficulty_target {
             return Err(BlockchainError::InvalidProofOfWork(format!(
@@ -205,7 +236,7 @@ impl Block {
         Ok(())
     }
 
-    fn get_difficulty_target_from_bits(bits: u32) -> Result<BlockchainHash, BlockchainError> {
+    fn get_difficulty_target_from_bits(bits: u32) -> BlockchainHash {
         // Placeholder for now:
         // Example: If bits represents the number of leading zeros required (simpler model)
         let mut target_bytes = [0xFF; 32];
@@ -213,7 +244,7 @@ impl Block {
         for i in 0..num_leading_zeros {
             target_bytes[i / 8] &= !(1 << (7 - (i % 8)));
         }
-        Ok(BlockchainHash::new(target_bytes))
+        BlockchainHash::new(target_bytes)
     }
 
     pub fn get_utxos<'a>(

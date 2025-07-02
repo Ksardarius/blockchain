@@ -157,33 +157,13 @@ impl<S: Storage> Blockchain<S> {
             ));
         }
 
-        let (used_utxos, _) = self.validate_transaction(&tx).await?;
-        self.mempool.insert(tx.id.clone(), tx.clone());
         let mut utxo_set = self.utxo_set.write().await;
-        utxo_set.reserve(used_utxos);
+
+        self.validate_double_spend_inputs(&tx, &mut utxo_set.reserved).await?;
+        self.validate_transaction(&tx).await?;
+        self.mempool.insert(tx.id.clone(), tx.clone());
 
         Ok(tx)
-    }
-
-    async fn validate_and_sum_tx_fees(&self, block: &Block) -> Result<u64, BlockchainError> {
-        let validation_futures: Vec<_> = block
-            .transactions
-            .iter()
-            .skip(1)
-            .map(async |tx| {
-                // might need to clone `self` if it's an Arc<Mutex<Blockchain>>
-                // or ensure `self` is validly captured across tasks.
-                // For example: let blockchain_clone = Arc::clone(&self.blockchain_arc);
-                // async move { blockchain_clone.validate_transaction(tx).await }
-                self.validate_transaction(tx).await.map(|(_, fee)| fee) // Map each transaction to its validation Future
-            })
-            .collect();
-
-        let all_fees: Vec<u64> = try_join_all(validation_futures).await?;
-
-        let fees = all_fees.iter().sum::<u64>();
-
-        Ok(fees)
     }
 
     fn validate_coinbase_transaction(
@@ -195,7 +175,7 @@ impl<S: Storage> Blockchain<S> {
         if !tx.inputs.is_empty() {
             if tx.inputs.len() != 1
                 || tx.inputs[0].prev_tx_id != BlockchainHash::default()
-                || tx.inputs[0].prev_out_idx != u32::MAX
+                || tx.inputs[0].prev_out_idx != 0xFFFFFFFF
             {
                 return Err(BlockchainError::InvalidCoinbase(
                     "Coinbase transaction has invalid inputs".to_string(),
@@ -218,10 +198,32 @@ impl<S: Storage> Blockchain<S> {
         return Ok(());
     }
 
-    async fn validate_transaction(
+    async fn validate_double_spend_inputs(
         &self,
         tx: &Transaction,
-    ) -> Result<(HashSet<(BlockchainHash, u32)>, u64), BlockchainError> {
+        reservations: &mut HashSet<(BlockchainHash, u32)>
+    ) -> Result<(), BlockchainError> {
+        let mut used_utxos: HashSet<_> = HashSet::new();
+        for tx_in in &tx.inputs {
+            let utxo_key = (tx_in.prev_tx_id, tx_in.prev_out_idx);
+
+            // Doubse spend attempt
+            // imput must not be used in uncommited transactions and inputs must be unique
+            if reservations.contains(&utxo_key) || !used_utxos.insert(utxo_key) {
+                return Err(BlockchainError::DoubleSpendAttempt {
+                    tx_id: tx_in.prev_tx_id.clone(),
+                    out_idx: tx_in.prev_out_idx,
+                });
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn validate_transaction(
+        &self,
+        tx: &Transaction
+    ) -> Result<u64, BlockchainError> {
         // verify transaction
         tx.verify_signatures()?;
 
@@ -229,20 +231,9 @@ impl<S: Storage> Blockchain<S> {
 
         let utxo_set = self.utxo_set.read().await;
 
-        let mut used_utxos: HashSet<_> = HashSet::new();
-
         // Verify inputs
         for tx_in in &tx.inputs {
             let utxo_key = (tx_in.prev_tx_id, tx_in.prev_out_idx);
-
-            // Doubse spend attempt
-            // imput must not be used in uncommited transactions and inputs must be unique
-            if utxo_set.is_reserved(&utxo_key) || !used_utxos.insert(utxo_key) {
-                return Err(BlockchainError::DoubleSpendAttempt {
-                    tx_id: tx_in.prev_tx_id.clone(),
-                    out_idx: tx_in.prev_out_idx,
-                });
-            }
 
             let prev_utxo =
                 utxo_set
@@ -284,24 +275,40 @@ impl<S: Storage> Blockchain<S> {
         }
 
         let fee = total_input_value - total_output_value;
-        Ok((used_utxos, fee))
+        Ok(fee)
     }
 
     pub async fn mine_pending_transactions(&mut self) -> Result<(), BlockchainError> {
         let mut transactions: Vec<Transaction> = self.mempool.drain().map(|(_, tx)| tx).collect();
 
-        transactions.insert(0, Transaction::coinbase_transaction());
+        let mut reserved_utxo = HashSet::new();
+
+        // validate double spend
+        for tx in &transactions {
+            self.validate_double_spend_inputs(tx, &mut reserved_utxo).await?;
+        }
+
+        let validation_futures: Vec<_> = transactions
+            .iter()
+            .map(|tx| {
+                // might need to clone `self` if it's an Arc<Mutex<Blockchain>>
+                // or ensure `self` is validly captured across tasks.
+                // For example: let blockchain_clone = Arc::clone(&self.blockchain_arc);
+                // async move { blockchain_clone.validate_transaction(tx).await }
+                self.validate_transaction(tx)
+            })
+            .collect();
+
+        let all_fees: Vec<u64> = try_join_all(validation_futures).await?;
+
+        let fees = all_fees.iter().sum::<u64>();
+        let coinbase_transaction = Transaction::coinbase_transaction("24467286509945fd0d87b72af8a3af01a3268162", fees + 50);
+        self.validate_coinbase_transaction(&coinbase_transaction, fees)?;
+
+        transactions.insert(0, coinbase_transaction);
+        
         let last_block = self.last_block();
-
-        let block = Block::new(last_block.height + 1, transactions, last_block.hash);
-
-        self.add_block(block).await?;
-
-        Ok(())
-    }
-
-    pub async fn add_block(&mut self, block: Block) -> Result<(), BlockchainError> {
-        let last_block = self.last_block();
+        let block = Block::mine_new(last_block.height + 1, transactions, last_block.hash).await;
 
         // 1. block continuity checks
         if block.height != last_block.height + 1 {
@@ -316,22 +323,10 @@ impl<S: Storage> Blockchain<S> {
             )));
         }
 
-        // 2. Full header validation
-        block.verify_merkle_root()?;
-        block.verify_timestamp_plausibility()?;
-        block.validate_proof_of_work()?;
+        // 2. validate blocks
+        block.validate_block()?;
 
-        // 3. Transactions validation
-        let total_fee = self.validate_and_sum_tx_fees(&block).await?;
-        let coinbase_tx = block
-            .transactions
-            .first()
-            .ok_or(BlockchainError::InvalidCoinbase(format!(
-                "Coinbase transaction is missing."
-            )))?;
-        self.validate_coinbase_transaction(coinbase_tx, total_fee)?;
-
-        // 4. UTXO set update
+        // 3. UTXO set update
         let (utxo_add, utxo_remove) = block.get_utxos();
         let mut utxo_set = self.utxo_set.write().await;
 
@@ -343,7 +338,7 @@ impl<S: Storage> Blockchain<S> {
             utxo_set.insert(key, value);
         }
 
-        // 5. Persistance
+        // 4. Persistance
         let block = self.storage.save_block(block).await?;
         // may be need to save height too?
         self.storage

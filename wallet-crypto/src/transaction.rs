@@ -164,24 +164,38 @@ impl Transaction {
         BlockchainHash::new(second_hash.into())
     }
 
-    pub fn coinbase_transaction() -> Transaction {
+    pub fn genesis_transaction() -> Transaction {
         const INITIAL_BLOCK_REWARD: u64 = 120;
+        Self::coinbase_transaction("24467286509945fd0d87b72af8a3af01a3268162", INITIAL_BLOCK_REWARD)
+    }
+
+    pub fn coinbase_transaction(miner_addr: &str, fee: u64) -> Transaction {
+        
         let inital_wallet: PublicKeyHash =
-            PublicKeyHash::try_from_string("24467286509945fd0d87b72af8a3af01a3268162").unwrap();
+            PublicKeyHash::try_from_string(miner_addr).unwrap();
 
         let initial_reward_output = TxOut {
-            value: INITIAL_BLOCK_REWARD,
+            value: fee,
             script_pubkey: Script::PayToPublicKeyHash {
                 pub_key_hash: inital_wallet,
             },
         };
 
-        Transaction {
+        let mut tx = Transaction {
             id: BlockchainHash::default(),
-            inputs: vec![],
+            inputs: vec![TxIn {
+                prev_tx_id: BlockchainHash::default(),
+                prev_out_idx: 0xFFFFFFFF,
+                sequence: 0xFFFFFFFF,
+                script_sig: Signature::from_bytes(b"My custom blockchain miner message! Block X")
+            }],
             outputs: vec![initial_reward_output],
             timestamp: 0,
-        }
+        };
+
+        tx.id = tx.calculate_id();
+
+        tx
     }
 
     pub fn verify_signatures(&self) -> Result<(), SignatureError> {

@@ -39,6 +39,10 @@ impl Signature {
         Self(signature)
     }
 
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        Signature(bytes.to_vec())
+    }
+
     pub fn get_verifier(&self) -> Result<PublicKeyWithSignature, SignatureError> {
         let (signature_bytes, public_key_bytes) =
             parse_p2pkh_script_sig_k256(&self.0).map_err(|e| {

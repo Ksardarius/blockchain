@@ -32,19 +32,12 @@ impl<TxOut> UTXOSet<TxOut> {
     }
 
     pub fn remove(&mut self, key: &Key) -> Option<TxOut> {
+        self.reserved.remove(key);
         self.data.remove(key)
     }
 
     pub fn insert(&mut self, key: Key, value: TxOut) -> Option<TxOut> {
         self.data.insert(key, value)
-    }
-
-    pub fn reserve(&mut self, data: HashSet<Key>) {
-        self.reserved.extend(data);
-    }
-
-    pub fn is_reserved(&self, key: &Key) -> bool {
-        self.reserved.contains(key)
     }
 }
 
