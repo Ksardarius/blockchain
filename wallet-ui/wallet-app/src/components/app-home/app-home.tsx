@@ -1,6 +1,6 @@
 import { Component, h, State } from '@stencil/core';
 import { Router } from "../../";
-import init, { generate_new_key_pair, create_wallet, get_all_wallets, create_transaction, get_utxos } from 'wallet-web-wasm'
+import init, { generate_new_key_pair, create_wallet, get_all_wallets, create_transaction, get_utxos, mine_block } from 'wallet-web-wasm'
 
 @Component({
   tag: 'app-home',
@@ -17,6 +17,12 @@ export class AppHome {
   @State()
   addresses: string[] = []
 
+  @State()
+  utxos: any[] = []
+
+  @State()
+  utxo_to_spend: any[] = []
+
   componentWillLoad() {
     return init();
   }
@@ -32,13 +38,18 @@ export class AppHome {
   }
 
   async create_new_transaction() {
-    let tx = await create_transaction(this.selected_address, "123", this.selected_recipient, BigInt(100));
+    let tx = await create_transaction(this.selected_address, "123", this.selected_recipient, BigInt(100), this.utxo_to_spend);
     console.log('Transaction created', tx)
   }
 
   async get_utxos() {
-    let utxos = await get_utxos(this.selected_address);
-    console.log('Selected vallet utxos', utxos);
+    const response = await get_utxos(this.selected_address);
+    this.utxos = response.Ok;
+    console.log('Selected vallet utxos', this.utxos);
+  }
+
+  async mine_block() {
+    await mine_block();
   }
 
   handle_select(event) {
@@ -47,6 +58,10 @@ export class AppHome {
 
   handle_recipient_select(event) {
     this.selected_recipient = event.target.value;
+  }
+
+  mark_utxo_to_spend(utxo) {
+    this.utxo_to_spend = [...this.utxo_to_spend, utxo]
   }
 
   async handle_submit() {
@@ -85,10 +100,22 @@ export class AppHome {
                 </select>
               </label>
             </div>
+            <div>
+              <table>
+                {this.utxos.map(utxo => <td>
+                  <tr>
+                    <td><input type="checkbox" id="vehicle1" name="vehicle1" value="Bike" onChange={(event) => this.mark_utxo_to_spend(utxo)} /></td>
+                    <td>{JSON.stringify(utxo)}</td>
+                  </tr>
+                </td>)}
+                <td></td>
+              </table>
+            </div>
 
 
           </form>
         </div>
+
         <p>
           Welcome to the Stencil App Starter. You can use this starter to build entire apps all with web components using Stencil! Check out our docs on{' '}
           <a href="https://stenciljs.com">stenciljs.com</a> to get started.
@@ -112,6 +139,11 @@ export class AppHome {
           onClick={() => { this.get_utxos() }}
         >
           Get UTXO
+        </button>
+        <button
+          onClick={() => { this.mine_block() }}
+        >
+          Mine block
         </button>
         <button
           onClick={() => Router.push('/profile/stencil')}

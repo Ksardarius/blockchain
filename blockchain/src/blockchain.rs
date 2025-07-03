@@ -157,9 +157,12 @@ impl<S: Storage> Blockchain<S> {
             ));
         }
 
-        let mut utxo_set = self.utxo_set.write().await;
+        {
+            let mut utxo_set = self.utxo_set.write().await;
+            self.validate_double_spend_inputs(&tx, &mut utxo_set.reserved)
+                .await?;
+        }
 
-        self.validate_double_spend_inputs(&tx, &mut utxo_set.reserved).await?;
         self.validate_transaction(&tx).await?;
         self.mempool.insert(tx.id.clone(), tx.clone());
 
@@ -201,7 +204,7 @@ impl<S: Storage> Blockchain<S> {
     async fn validate_double_spend_inputs(
         &self,
         tx: &Transaction,
-        reservations: &mut HashSet<(BlockchainHash, u32)>
+        reservations: &mut HashSet<(BlockchainHash, u32)>,
     ) -> Result<(), BlockchainError> {
         let mut used_utxos: HashSet<_> = HashSet::new();
         for tx_in in &tx.inputs {
@@ -217,13 +220,12 @@ impl<S: Storage> Blockchain<S> {
             }
         }
 
+        reservations.extend(used_utxos);
+
         Ok(())
     }
 
-    async fn validate_transaction(
-        &self,
-        tx: &Transaction
-    ) -> Result<u64, BlockchainError> {
+    async fn validate_transaction(&self, tx: &Transaction) -> Result<u64, BlockchainError> {
         // verify transaction
         tx.verify_signatures()?;
 
@@ -285,7 +287,8 @@ impl<S: Storage> Blockchain<S> {
 
         // validate double spend
         for tx in &transactions {
-            self.validate_double_spend_inputs(tx, &mut reserved_utxo).await?;
+            self.validate_double_spend_inputs(tx, &mut reserved_utxo)
+                .await?;
         }
 
         let validation_futures: Vec<_> = transactions
@@ -302,11 +305,14 @@ impl<S: Storage> Blockchain<S> {
         let all_fees: Vec<u64> = try_join_all(validation_futures).await?;
 
         let fees = all_fees.iter().sum::<u64>();
-        let coinbase_transaction = Transaction::coinbase_transaction("24467286509945fd0d87b72af8a3af01a3268162", fees + 50);
+        let coinbase_transaction = Transaction::coinbase_transaction(
+            "24467286509945fd0d87b72af8a3af01a3268162",
+            fees + 50,
+        );
         self.validate_coinbase_transaction(&coinbase_transaction, fees)?;
 
         transactions.insert(0, coinbase_transaction);
-        
+
         let last_block = self.last_block();
         let block = Block::mine_new(last_block.height + 1, transactions, last_block.hash).await;
 

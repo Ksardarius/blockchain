@@ -1,7 +1,7 @@
 use wallet_crypto::{
     keys::{BlockchainHash, KeyPair, PublicKeyHash},
     scripts::Script,
-    transaction::{DraftTransaction, TxOut, UnsignedTxIn},
+    transaction::{DraftTransaction, TxOut, UnsignedTxIn, UTXO},
 };
 use wasm_bindgen::prelude::*;
 use web_sys::console;
@@ -52,17 +52,17 @@ pub async fn create_transaction(
     password: &str,
     recipient: &str,
     amount: u64,
+    utxos: JsValue
 ) -> Result<JsValue, JsValue> {
     let key = get_keypair(own_address, password).await.unwrap();
     if let Some(keypair) = key {
-        let txid_prev = BlockchainHash::default(); // Simulate a previous transaction ID
+        let utxos: Vec<UTXO> = serde_wasm_bindgen::from_value(utxos)?;
 
-        // TODO: must be used existing utxo
-        let tx_in = UnsignedTxIn {
-            prev_tx_id: txid_prev,
-            prev_out_idx: 0,
+        let input_utxo: Vec<UnsignedTxIn> = utxos.iter().map(|utxo|UnsignedTxIn {
+            prev_tx_id: utxo.prev_tx_id,
+            prev_out_idx: utxo.prev_out_idx,
             sequence: 0xFFFFFFFF,
-        };
+        }).collect();
 
         // TODO: value must be passed in
         let tx_out = TxOut {
@@ -72,7 +72,7 @@ pub async fn create_transaction(
             },
         };
 
-        let tx = DraftTransaction::new(vec![tx_in], vec![tx_out]);
+        let tx = DraftTransaction::new(input_utxo, vec![tx_out]);
         let tx = tx.sign(&keypair);
 
         // verify correctness
@@ -98,6 +98,14 @@ pub async fn get_utxos(address: &str) -> Result<JsValue, JsValue> {
     let val = serde_wasm_bindgen::to_value(&utxos).unwrap();
 
     Ok(val)
+}
+
+#[wasm_bindgen]
+pub async fn mine_block() -> Result<JsValue, JsValue> {
+    let client = NodeClient::new("http://localhost:8989");
+    client.mine_block().await.map_err(|err|err.to_string())?;
+
+    Ok(JsValue::from_bool(true))
 }
 
 #[wasm_bindgen(start)]
