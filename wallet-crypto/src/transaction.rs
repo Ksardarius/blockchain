@@ -11,6 +11,9 @@ use crate::{
     scripts::Script,
 };
 
+const GENESIS_ADDR: &'static str = "8dd45dc1a355c066d89e551db6cd9469513eb4dd";
+const GENESIS_BLOCK_REWARD: u64 = 120;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode)]
 pub struct UTXO {
     pub prev_tx_id: BlockchainHash,
@@ -165,8 +168,7 @@ impl Transaction {
     }
 
     pub fn genesis_transaction() -> Transaction {
-        const INITIAL_BLOCK_REWARD: u64 = 120;
-        Self::coinbase_transaction("24467286509945fd0d87b72af8a3af01a3268162", INITIAL_BLOCK_REWARD)
+        Self::coinbase_transaction(GENESIS_ADDR, GENESIS_BLOCK_REWARD)
     }
 
     pub fn coinbase_transaction(miner_addr: &str, fee: u64) -> Transaction {

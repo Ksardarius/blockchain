@@ -19,6 +19,9 @@ use crate::{
 
 mod utxo_set;
 
+const miner_addr: &'static str = "8dd45dc1a355c066d89e551db6cd9469513eb4dd";
+const minner_reward: u64 = 50;
+
 #[derive(Debug, thiserror::Error)]
 pub enum BlockchainError {
     #[error("Inconsistent storage")]
@@ -306,8 +309,8 @@ impl<S: Storage> Blockchain<S> {
 
         let fees = all_fees.iter().sum::<u64>();
         let coinbase_transaction = Transaction::coinbase_transaction(
-            "24467286509945fd0d87b72af8a3af01a3268162",
-            fees + 50,
+            miner_addr,
+            fees + minner_reward,
         );
         self.validate_coinbase_transaction(&coinbase_transaction, fees)?;
 

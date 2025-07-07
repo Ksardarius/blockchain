@@ -2,20 +2,34 @@
   "name": "wallet-ui",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "wallet-web",
-    "wallet-app"
-  ],
+  "type": "module",
   "scripts": {
-    "build:wasm": "npm run --workspace wallet-web build",
-    "build:wasm:watch": "npm run --workspace wallet-web build:watch",
-    "start:ui": "npm run --workspace wallet-app start",
-    "dev": "npm-run-all -p build:wasm:watch start:ui"
+    "build:wasm": "wasm-pack build ../wallet-web  --out-dir ../wallet-ui/packages/wallet/wasm --out-name index --scope bc",
+    "build:wasm:dev": "wasm-pack build ../wallet-web  --out-dir ../wallet-ui/packages/wallet/wasm --out-name index --scope bc --dev",
+
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "app": "pnpm --filter @bc/app",
+    "wasm": "pnpm --filter @bc/wallet",
+    "ui": "pnpm --filter @bc/ui",
+    "prettier": "prettier ."
   },
   "devDependencies": {
-    "npm-run-all": "^4.1.5"
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.5.0",
+    "@eslint/js": "^9.22.0",
+    "@typescript-eslint/eslint-plugin": "^6.7.4",
+    "@typescript-eslint/parser": "^6.7.4",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "eslint": "^9.22.0",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-prettier": "^5.2.3",
+    "eslint-plugin-react": "^7.37.4",
+    "globals": "^16.0.0",
+    "typescript-eslint": "^8.26.1"
   },
   "dependencies": {
-    "wallet-web-wasm": "0.1.0"
   }
 }

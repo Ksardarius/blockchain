@@ -1,0 +1,11 @@
+**/node_modules/**
+**/target/**
+**/automatic/**
+**/dist/**
+
+# In most cases we expect to have tabWidth to be 2 for json,
+# but since prettier does not allow to have multiple versions of tabWidth,
+# we are adding json files to ignore.
+# https://github.com/prettier/prettier/issues/3533
+*.json
+.prettierrc
