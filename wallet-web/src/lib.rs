@@ -59,7 +59,6 @@ pub async fn create_transaction(
     fee_to_add: u64,
     utxos: JsValue,
 ) -> Result<JsValue, JsValue> {
-    log!(format!("????? {own_address}, {password}, {recipient}, {amount}, {fee_to_add}, {:?}", utxos));
     let key = get_keypair(own_address, password).await.unwrap();
     if let Some(keypair) = key {
         let utxos: Vec<UTXO> = serde_wasm_bindgen::from_value(utxos)?;
