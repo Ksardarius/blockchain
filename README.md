@@ -85,7 +85,7 @@ To run this project locally, you'll need:
 * pnpm
 
 \# 1\. Clone the repository  
-git clone https://github.com/your-username/my-custom-blockchain.git  
+git clone https://github.com/ksardarius/my-custom-blockchain.git  
 cd my-custom-blockchain
 
 \# 2\. Install JavaScript dependencies for the monorepo 
