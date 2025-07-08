@@ -297,10 +297,6 @@ impl<S: Storage> Blockchain<S> {
         let validation_futures: Vec<_> = transactions
             .iter()
             .map(|tx| {
-                // might need to clone `self` if it's an Arc<Mutex<Blockchain>>
-                // or ensure `self` is validly captured across tasks.
-                // For example: let blockchain_clone = Arc::clone(&self.blockchain_arc);
-                // async move { blockchain_clone.validate_transaction(tx).await }
                 self.validate_transaction(tx)
             })
             .collect();

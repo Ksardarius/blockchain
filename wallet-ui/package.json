@@ -8,6 +8,7 @@
     "build:wasm:dev": "wasm-pack build ../wallet-web  --out-dir ../wallet-ui/packages/wallet/wasm --out-name index --scope bc --dev",
 
     "lint": "eslint .",
+    "build": "pnpm --filter \"@bc/*\" build",
     "format": "prettier --write .",
     "test": "echo \"Error: no test specified\" && exit 1",
     "app": "pnpm --filter @bc/app",

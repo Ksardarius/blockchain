@@ -192,7 +192,7 @@ impl Transaction {
                 script_sig: Signature::from_bytes(b"My custom blockchain miner message! Block X")
             }],
             outputs: vec![initial_reward_output],
-            timestamp: 0,
+            timestamp: Utc::now().timestamp_millis() as u128,
         };
 
         tx.id = tx.calculate_id();
