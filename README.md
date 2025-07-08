@@ -93,37 +93,45 @@ Now, follow these steps to set up and run the blockchain node and the web wallet
 ### **Terminal 1: Run the Blockchain Node**
 
 This terminal will run your Rust-based blockchain node, which provides the API for your wallet.  
-\# 1\. Navigate to the 'node' directory  
+\# 1\. Navigate to the 'node' directory
+```sh
 cd node
+```
 
-\# 2\. Run the blockchain node  
+\# 2\. Run the blockchain node
+```sh
 cargo run
+```
 
 Leave this terminal running. It will output logs related to block creation, mining, and API requests.
 
 ### **Terminal 2: Set Up and Run the Web Wallet**
 
 This terminal will handle the setup and execution of your React-based web wallet.  
-\# 1\. Navigate to the 'wallet-ui' directory  
+\# 1\. Navigate to the 'wallet-ui' directory
+```sh
 cd wallet-ui
+```
 
-\# 2\. Install JavaScript dependencies for the wallet  
+\# 2\. Install JavaScript dependencies for the wallet
+```sh
 pnpm install
+```
 
-\# 3\. Navigate back to the monorepo root to build the Rust WebAssembly module  
-cd .. \# Go back to the 'blockchain' root directory
-
-\# 4\. Build the Rust WebAssembly module for the wallet  
+\# 3\. Build the Rust WebAssembly module for the wallet  
+```sh
 pnpm wasm build
+```
 
-\# 5\. Build the React application (wallet-ui)  
+\# 4\. Build the React application (wallet-ui)
+```sh
 pnpm build
+```
 
-\# 6\. Navigate back to the 'wallet-ui' directory to start the development server  
-cd wallet-ui
-
-\# 7\. Start the wallet web application  
+\# 5\. Start the wallet web application
+```sh
 pnpm app dev
+```
 
 The wallet should now be accessible in your browser, typically at http://localhost:5173. The node API will be running on a different port, e.g., http://localhost:3000.
 
