@@ -84,35 +84,48 @@ To run this project locally, you'll need:
 * Node.js (LTS version)  
 * pnpm
 
-\# 1\. Clone the repository  
+First, clone the repository and navigate into its root directory:  
 git clone https://github.com/ksardarius/blockchain.git  
-cd my-custom-blockchain
+cd blockchain \# Navigate to the root of the cloned repository
 
-\# 2\. Install JavaScript dependencies for the monorepo 
+Now, follow these steps to set up and run the blockchain node and the web wallet in two separate terminals.
+
+### **Terminal 1: Run the Blockchain Node**
+
+This terminal will run your Rust-based blockchain node, which provides the API for your wallet.  
+\# 1\. Navigate to the 'node' directory  
+cd node
+
+\# 2\. Run the blockchain node  
+cargo run
+
+Leave this terminal running. It will output logs related to block creation, mining, and API requests.
+
+### **Terminal 2: Set Up and Run the Web Wallet**
+
+This terminal will handle the setup and execution of your React-based web wallet.  
+\# 1\. Navigate to the 'wallet-ui' directory  
 cd wallet-ui
+
+\# 2\. Install JavaScript dependencies for the wallet  
 pnpm install
 
-\# 3\. Build the Rust WebAssembly module for the wallet  
-\# This command should be run from the monorepo root.  
+\# 3\. Navigate back to the monorepo root to build the Rust WebAssembly module  
+cd .. \# Go back to the 'blockchain' root directory
+
+\# 4\. Build the Rust WebAssembly module for the wallet  
 pnpm wasm build
 
-\# 4\. Build the React application (wallet-ui)  
-\# This command should be run from the monorepo root.  
+\# 5\. Build the React application (wallet-ui)  
 pnpm build
 
-\# 5\. Run the blockchain node (in a separate terminal)  
-\# Navigate to the 'node' directory and run the Rust binary directly.  
-cd ../node  
-cargo run  
-\# Open a new terminal for the next step.  
-cd ../wallet-ui \# Navigate back to app
+\# 6\. Navigate back to the 'wallet-ui' directory to start the development server  
+cd wallet-ui
 
-\# 6\. Start the wallet web application (wallet-ui) in another terminal  
-\# This command should be run from the monorepo root.  
+\# 7\. Start the wallet web application  
 pnpm app dev
 
-\# The wallet should now be accessible in your browser, typically at http://localhost:5173  
-\# The node API will be running on a different port, e.g., http://localhost:3000
+The wallet should now be accessible in your browser, typically at http://localhost:5173. The node API will be running on a different port, e.g., http://localhost:3000.
 
 ## **🛣️ Future Improvements**
 
@@ -143,4 +156,5 @@ This project is licensed under the MIT License. See the LICENSE file for details
 
 ## **👤 Author**
 
-\[Mihails Orlovs\]  
+\[Mihails Orlovs\]
+\[mihails.orlovs@gmail.com\]
